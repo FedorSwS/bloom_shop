@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLOOM SHOP — Магазин цветов</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <!-- ХЕДЕР -->
+    <header>
+        <div class="container header-content">
+            <a href="#" class="logo">🌸 BLOOM SHOP</a>
+            <nav>
+                <ul>
+                    <li><a href="#catalog">Каталог</a></li>
+                    <li><a href="#constructor">Конструктор</a></li>
+                    <li><a href="#florist">Флорист</a></li>
+                    <li><a href="#delivery">Доставка</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+            </nav>
+            <button class="cart-btn" id="cartBtn">🛒 Корзина (<span id="cartCount">0</span>)</button>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- HERO СЛАЙДЕР -->
+        <section class="hero">
+            <div>
+                <h1 class="hero-title">Свежие цветы с доставкой по Туле за 30 минут!</h1>
+                <p class="hero-subtitle">Скидка 15% на первый заказ по промокоду <strong>BLOOM2026</strong></p>
+                <div class="hero-buttons">
+                    <a href="#catalog" class="btn btn-primary">ВЫБРАТЬ БУКЕТ</a>
+                    <a href="#constructor" class="btn btn-secondary">СОБРАТЬ СВОЙ БУКЕТ</a>
+                </div>
+            </div>
+            <div class="hero-img-placeholder">
+                🖼️ [ СЛАЙДЕР: ФОТО ВЕСЕННЕЙ КОЛЛЕКЦИИ ]
+            </div>
+        </section>
+
+        <!-- КАТАЛОГ ГОТОВЫХ И СВАДЕБНЫХ БУКЕТОВ -->
+        <section id="catalog">
+            <h2 class="section-title">Готовые и свадебные букеты</h2>
+            <div class="catalog-grid">
+                
+                <div class="card">
+                    <div class="card-img">🖼️ [ ФОТО БУКЕТА ]</div>
+                    <div>
+                        <div class="card-title">Букет "Розовый Бриз"</div>
+                        <div class="card-desc">Состав: Французские розы, пионы, эвкалипт</div>
+                        <div class="card-price">3 500 ₽</div>
+                    </div>
+                    <button class="btn btn-primary card-btn" onclick="addToCart()">В корзину</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-img">🖼️ [ ФОТО БУКЕТА ]</div>
+                    <div>
+                        <div class="card-title">Букет "Солнечный Микс"</div>
+                        <div class="card-desc">Состав: Герберы, кустовые хризантемы</div>
+                        <div class="card-price">2 800 ₽</div>
+                    </div>
+                    <button class="btn btn-primary card-btn" onclick="addToCart()">В корзину</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-img">🖼️ [ ФОТО БУКЕТА ]</div>
+                    <div>
+                        <div class="card-title">Свадебный букет "Элегия"</div>
+                        <div class="card-desc">Состав: Белые эквадорские розы, гипсофила</div>
+                        <div class="card-price">6 200 ₽</div>
+                    </div>
+                    <button class="btn btn-secondary card-btn" onclick="addToCart()">В корзину</button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- КОНСТРУКТОР БУКЕТА -->
+        <section id="constructor">
+            <h2 class="section-title">Конструктор индивидуального букета</h2>
+            <div class="constructor-box">
+                <div>
+                    <p style="margin-bottom: 16px; color: var(--text-muted);">Выберите виды и количество цветов:</p>
+                    
+                    <div class="flower-item">
+                        <div class="flower-info">
+                            <input type="checkbox" id="chk-rose" checked onchange="updateConstructor()">
+                            <label for="chk-rose">🌹 Розы (250 ₽/шт)</label>
+                        </div>
+                        <div class="qty-control">
+                            <button class="qty-btn" onclick="changeQty('rose', -1)">-</button>
+                            <span id="qty-rose">11</span>
+                            <button class="qty-btn" onclick="changeQty('rose', 1)">+</button>
+                        </div>
+                    </div>
+
+                    <div class="flower-item">
+                        <div class="flower-info">
+                            <input type="checkbox" id="chk-peony" checked onchange="updateConstructor()">
+                            <label for="chk-peony">🌸 Пионы (350 ₽/шт)</label>
+                        </div>
+                        <div class="qty-control">
+                            <button class="qty-btn" onclick="changeQty('peony', -1)">-</button>
+                            <span id="qty-peony">5</span>
+                            <button class="qty-btn" onclick="changeQty('peony', 1)">+</button>
+                        </div>
+                    </div>
+
+                    <div class="flower-item">
+                        <div class="flower-info">
+                            <input type="checkbox" id="chk-tulip" onchange="updateConstructor()">
+                            <label for="chk-tulip">🌷 Тюльпаны (180 ₽/шт)</label>
+                        </div>
+                        <div class="qty-control">
+                            <button class="qty-btn" onclick="changeQty('tulip', -1)">-</button>
+                            <span id="qty-tulip">0</span>
+                            <button class="qty-btn" onclick="changeQty('tulip', 1)">+</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ИТОГО КОНСТРУКТОРА -->
+                <div class="summary-card">
+                    <div>
+                        <div class="summary-title">Ваш составленный букет:</div>
+                        <ul class="summary-list" id="summary-list">
+                            <!-- Заполняется динамически -->
+                        </ul>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; color: var(--text-muted);">Стоимость цветов:</div>
+                        <div class="total-price" id="constructor-total">0 ₽</div>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 16px;" onclick="addToCart()">Добавить собранный букет</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- УПАКОВКА И СОПУТСТВУЮЩИЕ ТОВАРЫ -->
+        <section class="packaging-section">
+            <h3>🎁 Выбор упаковки и дополнений</h3>
+            
+            <p style="margin-top: 12px; font-size: 14px; color: var(--text-muted);">Вариант упаковки:</p>
+            <div class="options-group">
+                <label class="radio-label">
+                    <input type="radio" name="packaging" value="200" checked> Крафтовая бумага (+200 ₽)
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="packaging" value="500"> Подарочная коробка (+500 ₽)
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="packaging" value="100"> Атласная лента (+100 ₽)
+                </label>
+            </div>
+
+            <p style="margin-top: 12px; font-size: 14px; color: var(--text-muted); margin-bottom: 12px;">Сопутствующие товары:</p>
+            <div class="addons-grid">
+                <div class="addon-card">
+                    <div class="addon-img">🖼️ [ОТКРЫТКА]</div>
+                    <div style="font-size: 14px; font-weight: 600;">Открытка "С днем"</div>
+                    <div style="color: var(--primary); font-weight: 700; margin: 4px 0;">150 ₽</div>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="addToCart()">+ Добавить</button>
+                </div>
+
+                <div class="addon-card">
+                    <div class="addon-img">🖼️ [ИГРУШКА]</div>
+                    <div style="font-size: 14px; font-weight: 600;">Мишка 20 см</div>
+                    <div style="color: var(--primary); font-weight: 700; margin: 4px 0;">800 ₽</div>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="addToCart()">+ Добавить</button>
+                </div>
+
+                <div class="addon-card">
+                    <div class="addon-img">🖼️ [БАНТ]</div>
+                    <div style="font-size: 14px; font-weight: 600;">Пышный бант</div>
+                    <div style="color: var(--primary); font-weight: 700; margin: 4px 0;">250 ₽</div>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="addToCart()">+ Добавить</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ФЛОРИСТ И ДОСТАВКА -->
+        <div class="two-cols">
+            
+            <!-- Услуги флориста -->
+            <section class="box-panel box-florist" id="florist">
+                <h3 style="color: var(--secondary); margin-bottom: 8px;">🌿 Услуги флориста</h3>
+                <p style="font-size: 14px; color: #374151; margin-bottom: 20px;">
+                    Нужен индивидуальный дизайн свадебных букетов или оформление интерьера? Оставьте заявку на бесплатную консультацию.
+                </p>
+                <form id="floristForm">
+                    <div class="form-group">
+                        <label>Ваше имя</label>
+                        <input type="text" class="form-control" placeholder="Анна" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Номер телефона</label>
+                        <input type="tel" class="form-control" placeholder="+7 (999) 000-00-00" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%;">Заказать консультацию</button>
+                </form>
+            </section>
+
+            <!-- Доставка -->
+            <section class="box-panel" id="delivery">
+                <h3 style="margin-bottom: 8px;">🚚 Оформление доставки</h3>
+                <div class="form-group">
+                    <label>Адрес доставки в Туле</label>
+                    <input type="text" class="form-control" placeholder="ул. Ленина, д. 10, кв. 25" required>
+                </div>
+
+                <div class="date-picker-box">
+                    <label style="font-weight: 600; color: #92400E;">📆 Дата и время доставки (Date Picker):</label>
+                    <input type="date" class="form-control" value="2026-10-12" style="margin-top: 8px;">
+                </div>
+
+                <div class="form-group">
+                    <label>Интервал времени:</label>
+                    <div style="display: flex; gap: 12px; font-size: 13px;">
+                        <label><input type="radio" name="time" checked> Срочная (30 мин)</label>
+                        <label><input type="radio" name="time"> 09:00 - 12:00</label>
+                        <label><input type="radio" name="time"> 18:00 - 21:00</label>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%;" onclick="alert('Заказ успешно оформлен!')">Оформить и оплатить заказ</button>
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- ФУТЕР И FAQ -->
+    <footer class="container" id="faq">
+        <h3 style="margin-bottom: 20px; color: var(--accent);">❓ Часто задаваемые вопросы (FAQ)</h3>
+        
+        <div class="faq-item active" onclick="toggleFaq(this)">
+            <div class="faq-question">
+                <span>▼ Как быстро осуществляется доставка по Туле?</span>
+            </div>
+            <div class="faq-answer">
+                Доставка осуществляется от 30 минут с момента подтверждения и сборки букета.
+            </div>
+        </div>
+
+        <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-question">
+                <span>► Можно ли добавить анонимную записку к букету?</span>
+            </div>
+            <div class="faq-answer">
+                Да, при оформлении заказа вы можете указать текст записки и выбрать опцию "Анонимная доставка".
+            </div>
+        </div>
+
+        <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-question">
+                <span>► Что делать, если букет не понравился получателю?</span>
+            </div>
+            <div class="faq-answer">
+                Мы гарантируем свежесть цветов. Если качество композиции вас не устроит, мы заменим букет в течение 24 часов.
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div>🌸 BLOOM SHOP | Отчет по практической работе №4</div>
+            <div>Выполнил: Евстигнеев Ф.А. (гр. 220032-11), 2026 г.</div>
+        </div>
+    </footer>
+
+</body>
+</html>

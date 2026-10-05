@@ -1,0 +1,10 @@
+{
+  "description": "Creates clean, responsive website layouts based on user-provided design examples, enabling efficient web development and prototyping.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
