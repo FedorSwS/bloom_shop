@@ -1,6 +1,35 @@
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { apiRequest, supabase } from "./supabase";
 
 type FlowerId = "rose" | "peony" | "tulip";
+type CartItem = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  details?: string;
+};
+type Order = {
+  id: string;
+  createdAt: string;
+  status: string;
+  items: CartItem[];
+  total: number;
+};
+type Consultation = {
+  id: string;
+  createdAt: string;
+  status: string;
+  name: string;
+  phone: string;
+};
+type AccountData = {
+  email: string;
+  orders: Order[];
+  consultations: Consultation[];
+};
 
 const bouquets = [
   {
@@ -148,6 +177,36 @@ function Icon({
         <path d="m10 12-3 9 5-3 5 3-3-9" />
       </>
     ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="m6 6 12 12" />
+        <path d="m18 6-12 12" />
+      </>
+    ),
+    mail: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M10 17l5-5-5-5M15 12H3" />
+        <path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" />
+      </>
+    ),
+    package: (
+      <>
+        <path d="m3 7 9 5 9-5-9-4-9 4Z" />
+        <path d="M3 7v10l9 4 9-4V7M12 12v9" />
+      </>
+    ),
   };
 
   return (
@@ -168,7 +227,24 @@ function Icon({
 }
 
 function App() {
-  const [cartCount, setCartCount] = useState(0);
+  const [user, setUser] = useState<User | null>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("bloom-guest-cart") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [cartReady, setCartReady] = useState(false);
+  const [account, setAccount] = useState<AccountData | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authSent, setAuthSent] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [quantities, setQuantities] = useState<Record<FlowerId, number>>({
     rose: 11,
     peony: 5,
@@ -187,20 +263,200 @@ function App() {
       ),
     [quantities],
   );
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+  const discount = promoApplied ? Math.round(subtotal * 0.15) : 0;
+  const cartTotal = subtotal - discount;
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) setAuthOpen(false);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setAccount(null);
+      setCartReady(true);
+      return;
+    }
+
+    setCartReady(false);
+    Promise.all([
+      apiRequest<{ items: CartItem[] }>("/cart"),
+      apiRequest<AccountData>("/account"),
+    ])
+      .then(([cartData, accountData]) => {
+        const guestItems = cartItems;
+        const nextItems = cartData.items.length ? cartData.items : guestItems;
+        setCartItems(nextItems);
+        setAccount(accountData);
+        if (!cartData.items.length && guestItems.length) {
+          apiRequest("/cart", {
+            method: "PUT",
+            body: JSON.stringify({ items: guestItems }),
+          }).catch(console.error);
+        }
+        localStorage.removeItem("bloom-guest-cart");
+      })
+      .catch(() => notify("Не удалось загрузить данные кабинета"))
+      .finally(() => setCartReady(true));
+    // Cart is intentionally captured once when the authenticated account loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!cartReady) return;
+    if (!user) {
+      localStorage.setItem("bloom-guest-cart", JSON.stringify(cartItems));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      apiRequest("/cart", {
+        method: "PUT",
+        body: JSON.stringify({ items: cartItems }),
+      }).catch(() => notify("Не удалось сохранить корзину"));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [cartItems, cartReady, user]);
 
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2600);
   };
 
-  const addToCart = (message = "Букет добавлен в корзину") => {
-    setCartCount((count) => count + 1);
+  const addToCart = (
+    item: Omit<CartItem, "quantity">,
+    message = "Букет добавлен в корзину",
+  ) => {
+    setCartItems((current) => {
+      const existing = current.find((entry) => entry.id === item.id);
+      if (existing) {
+        return current.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, quantity: entry.quantity + 1 }
+            : entry,
+        );
+      }
+      return [...current, { ...item, quantity: 1 }];
+    });
     notify(message);
   };
 
-  const submitForm = (event: FormEvent, message: string) => {
+  const updateCartItem = (id: string, delta: number) => {
+    setCartItems((current) =>
+      current
+        .map((item) =>
+          item.id === id
+            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  };
+
+  const requireAccount = () => {
+    if (user) return true;
+    setAuthOpen(true);
+    notify("Войдите по email, чтобы продолжить");
+    return false;
+  };
+
+  const sendMagicLink = async (event: FormEvent) => {
     event.preventDefault();
-    notify(message);
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setBusy(false);
+    if (error) {
+      notify(error.message);
+      return;
+    }
+    setAuthSent(true);
+  };
+
+  const loadAccount = async () => {
+    const data = await apiRequest<AccountData>("/account");
+    setAccount(data);
+  };
+
+  const submitConsultation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!requireAccount()) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setBusy(true);
+    try {
+      const result = await apiRequest<{ emailSent: boolean }>("/consultations", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.get("name"),
+          phone: form.get("phone"),
+        }),
+      });
+      formElement.reset();
+      await loadAccount();
+      notify(
+        result.emailSent
+          ? "Заявка отправлена, подтверждение уже на почте"
+          : "Заявка сохранена в личном кабинете",
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Ошибка отправки");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!cartItems.length) {
+      setCartOpen(true);
+      notify("Сначала добавьте товары в корзину");
+      return;
+    }
+    if (!requireAccount()) return;
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      const result = await apiRequest<{ order: Order; emailSent: boolean }>(
+        "/orders",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            items: cartItems,
+            subtotal,
+            discount,
+            total: cartTotal,
+            promoCode: promoApplied ? "BLOOM2026" : "",
+            address: form.get("address"),
+            date: form.get("date"),
+            interval: form.get("interval"),
+          }),
+        },
+      );
+      setCartItems([]);
+      setPromoApplied(false);
+      await loadAccount();
+      setAccountOpen(true);
+      notify(
+        result.emailSent
+          ? `Заказ ${result.order.id} оформлен, письмо отправлено`
+          : `Заказ ${result.order.id} сохранён`,
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Ошибка оформления");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -233,7 +489,15 @@ function App() {
             </a>
           </nav>
           <div className="header-actions">
-            <button className="cart-button" onClick={() => notify("Корзина пока пуста")}>
+            <button
+              className="account-button"
+              onClick={() => (user ? setAccountOpen(true) : setAuthOpen(true))}
+              aria-label={user ? "Открыть личный кабинет" : "Войти в личный кабинет"}
+            >
+              <Icon name="user" size={18} />
+              <span>{user ? user.email?.split("@")[0] : "Войти"}</span>
+            </button>
+            <button className="cart-button" onClick={() => setCartOpen(true)}>
               <Icon name="bag" size={19} />
               <span>Корзина</span>
               <b>{cartCount}</b>
@@ -331,7 +595,17 @@ function App() {
                   <p>{bouquet.description}</p>
                   <div className="product-footer">
                     <strong>{bouquet.price.toLocaleString("ru-RU")} ₽</strong>
-                    <button onClick={() => addToCart()}>
+                    <button
+                      onClick={() =>
+                        addToCart({
+                          id: `bouquet-${bouquet.name}`,
+                          name: bouquet.name,
+                          price: bouquet.price,
+                          image: bouquet.image,
+                          details: bouquet.description,
+                        })
+                      }
+                    >
                       В корзину <Icon name="bag" size={17} />
                     </button>
                   </div>
@@ -422,7 +696,23 @@ function App() {
                   <button
                     className="button button-primary full-button"
                     disabled={flowerTotal === 0}
-                    onClick={() => addToCart("Ваш букет добавлен в корзину")}
+                    onClick={() =>
+                      addToCart(
+                        {
+                          id: `custom-${Object.values(quantities).join("-")}-${packaging}`,
+                          name: "Индивидуальная композиция",
+                          price: flowerTotal + packaging,
+                          details: flowers
+                            .filter((flower) => quantities[flower.id] > 0)
+                            .map(
+                              (flower) =>
+                                `${flower.name}: ${quantities[flower.id]} шт.`,
+                            )
+                            .join(", "),
+                        },
+                        "Ваш букет добавлен в корзину",
+                      )
+                    }
                   >
                     Добавить в корзину <Icon name="arrow" size={18} />
                   </button>
@@ -479,7 +769,16 @@ function App() {
                     </div>
                     <button
                       aria-label={`Добавить: ${addon.name}`}
-                      onClick={() => addToCart(`${addon.name} добавлен в корзину`)}
+                      onClick={() =>
+                        addToCart(
+                          {
+                            id: `addon-${addon.name}`,
+                            name: addon.name,
+                            price: addon.price,
+                          },
+                          `${addon.name} добавлен в корзину`,
+                        )
+                      }
                     >
                       +
                     </button>
@@ -514,21 +813,27 @@ function App() {
               </p>
               <form
                 className="consult-form"
-                onSubmit={(event) =>
-                  submitForm(event, "Заявка отправлена. Скоро мы вам позвоним")
-                }
+                onSubmit={submitConsultation}
               >
                 <label>
                   <span>Ваше имя</span>
-                  <input required placeholder="Анна" />
+                  <input required name="name" placeholder="Анна" />
                 </label>
                 <label>
                   <span>Номер телефона</span>
-                  <input required placeholder="+7 (___) ___-__-__" type="tel" />
+                  <input
+                    required
+                    name="phone"
+                    placeholder="+7 (___) ___-__-__"
+                    type="tel"
+                  />
                 </label>
-                <button className="button button-dark" type="submit">
+                <button className="button button-dark" disabled={busy} type="submit">
                   Заказать консультацию <Icon name="arrow" size={18} />
                 </button>
+                <small className="form-note">
+                  Подтверждение придёт на email личного кабинета
+                </small>
               </form>
             </div>
           </div>
@@ -557,30 +862,38 @@ function App() {
           </div>
           <form
             className="delivery-form"
-            onSubmit={(event) =>
-              submitForm(event, "Заказ принят в обработку")
-            }
+            onSubmit={submitOrder}
           >
             <h3>Оформить доставку</h3>
             <label className="wide-field">
               <span>Адрес доставки в Туле</span>
-              <input required placeholder="Улица, дом, квартира" />
+              <input required name="address" placeholder="Улица, дом, квартира" />
             </label>
             <label>
               <span>Дата доставки</span>
-              <input required type="date" />
+              <input required name="date" type="date" />
             </label>
             <label>
               <span>Интервал времени</span>
-              <select defaultValue="express">
-                <option value="express">Срочная — 30 минут</option>
+              <select defaultValue="Срочная — 30 минут" name="interval">
+                <option>Срочная — 30 минут</option>
                 <option>09:00 — 12:00</option>
                 <option>12:00 — 15:00</option>
                 <option>18:00 — 21:00</option>
               </select>
             </label>
-            <button className="button button-primary wide-field" type="submit">
-              Оформить и оплатить заказ <Icon name="arrow" size={18} />
+            <div className="checkout-summary wide-field">
+              <span>
+                В корзине: <b>{cartCount} шт.</b>
+              </span>
+              <strong>{cartTotal.toLocaleString("ru-RU")} ₽</strong>
+            </div>
+            <button
+              className="button button-primary wide-field"
+              disabled={busy}
+              type="submit"
+            >
+              Оформить заказ <Icon name="arrow" size={18} />
             </button>
           </form>
         </section>
@@ -649,6 +962,304 @@ function App() {
           <span>Тула, проспект Ленина, 74</span>
         </div>
       </footer>
+
+      <div
+        className={cartOpen || accountOpen ? "drawer-backdrop show" : "drawer-backdrop"}
+        onClick={() => {
+          setCartOpen(false);
+          setAccountOpen(false);
+        }}
+      />
+
+      <aside className={cartOpen ? "side-drawer open" : "side-drawer"}>
+        <div className="drawer-header">
+          <div>
+            <span className="section-kicker">Ваш выбор</span>
+            <h2>Корзина</h2>
+          </div>
+          <button
+            className="icon-button"
+            aria-label="Закрыть корзину"
+            onClick={() => setCartOpen(false)}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="drawer-body">
+          {!cartItems.length ? (
+            <div className="empty-state">
+              <Icon name="bag" size={34} strokeWidth={1.3} />
+              <h3>Здесь пока пусто</h3>
+              <p>Добавьте букет из каталога или соберите свой.</p>
+              <button
+                className="button button-primary"
+                onClick={() => setCartOpen(false)}
+              >
+                Перейти к каталогу
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="cart-list">
+                {cartItems.map((item) => (
+                  <article className="cart-item" key={item.id}>
+                    <div className="cart-thumb">
+                      {item.image ? (
+                        <img src={item.image} alt="" />
+                      ) : (
+                        <Icon name="package" size={26} strokeWidth={1.4} />
+                      )}
+                    </div>
+                    <div className="cart-item-copy">
+                      <strong>{item.name}</strong>
+                      {item.details && <small>{item.details}</small>}
+                      <span>{item.price.toLocaleString("ru-RU")} ₽</span>
+                    </div>
+                    <div className="mini-qty">
+                      <button
+                        aria-label={`Уменьшить количество: ${item.name}`}
+                        onClick={() => updateCartItem(item.id, -1)}
+                      >
+                        −
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        aria-label={`Увеличить количество: ${item.name}`}
+                        onClick={() => updateCartItem(item.id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="promo-box">
+                <label htmlFor="promo">Промокод</label>
+                <div>
+                  <input
+                    id="promo"
+                    placeholder="Введите промокод"
+                    value={promoInput}
+                    onChange={(event) => setPromoInput(event.target.value)}
+                  />
+                  <button
+                    onClick={() => {
+                      if (promoInput.trim().toUpperCase() === "BLOOM2026") {
+                        setPromoApplied(true);
+                        notify("Промокод применён: скидка 15%");
+                      } else {
+                        setPromoApplied(false);
+                        notify("Промокод не найден");
+                      }
+                    }}
+                  >
+                    Применить
+                  </button>
+                </div>
+                {promoApplied && <small>Скидка 15% активна</small>}
+              </div>
+            </>
+          )}
+        </div>
+        {!!cartItems.length && (
+          <div className="drawer-footer">
+            <div className="price-row">
+              <span>Товары</span>
+              <b>{subtotal.toLocaleString("ru-RU")} ₽</b>
+            </div>
+            {promoApplied && (
+              <div className="price-row discount-row">
+                <span>Скидка по промокоду</span>
+                <b>−{discount.toLocaleString("ru-RU")} ₽</b>
+              </div>
+            )}
+            <div className="price-row total-row">
+              <span>Итого</span>
+              <b>{cartTotal.toLocaleString("ru-RU")} ₽</b>
+            </div>
+            {!user && (
+              <p className="drawer-hint">
+                Войдите, чтобы корзина сохранилась в личном кабинете.
+              </p>
+            )}
+            <a
+              className="button button-primary full-button"
+              href="#delivery"
+              onClick={() => setCartOpen(false)}
+            >
+              Перейти к оформлению <Icon name="arrow" size={18} />
+            </a>
+          </div>
+        )}
+      </aside>
+
+      <aside
+        className={
+          accountOpen ? "side-drawer account-drawer open" : "side-drawer account-drawer"
+        }
+      >
+        <div className="drawer-header">
+          <div>
+            <span className="section-kicker">Bloom club</span>
+            <h2>Личный кабинет</h2>
+          </div>
+          <button
+            className="icon-button"
+            aria-label="Закрыть личный кабинет"
+            onClick={() => setAccountOpen(false)}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="account-profile">
+          <div className="account-avatar">
+            <Icon name="user" size={25} />
+          </div>
+          <div>
+            <small>Ваш аккаунт</small>
+            <strong>{user?.email}</strong>
+          </div>
+          <button
+            aria-label="Выйти из аккаунта"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              setAccountOpen(false);
+              setCartItems([]);
+              notify("Вы вышли из личного кабинета");
+            }}
+          >
+            <Icon name="logout" size={18} />
+          </button>
+        </div>
+        <div className="drawer-body account-body">
+          <section className="account-section">
+            <div className="account-section-title">
+              <h3>Мои заказы</h3>
+              <span>{account?.orders.length ?? 0}</span>
+            </div>
+            {!account?.orders.length ? (
+              <p className="account-empty">Оформленные заказы появятся здесь.</p>
+            ) : (
+              <div className="order-list">
+                {account.orders.map((order) => (
+                  <article className="order-card" key={order.id}>
+                    <div>
+                      <strong>{order.id}</strong>
+                      <span>{order.status}</span>
+                    </div>
+                    <p>
+                      {order.items.reduce((sum, item) => sum + item.quantity, 0)}{" "}
+                      товара · {order.total.toLocaleString("ru-RU")} ₽
+                    </p>
+                    <small>
+                      {new Date(order.createdAt).toLocaleDateString("ru-RU", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+          <section className="account-section">
+            <div className="account-section-title">
+              <h3>Консультации</h3>
+              <span>{account?.consultations.length ?? 0}</span>
+            </div>
+            {!account?.consultations.length ? (
+              <p className="account-empty">Ваши заявки флористу появятся здесь.</p>
+            ) : (
+              <div className="order-list">
+                {account.consultations.map((consultation) => (
+                  <article className="order-card consultation-card" key={consultation.id}>
+                    <div>
+                      <strong>{consultation.id}</strong>
+                      <span>{consultation.status}</span>
+                    </div>
+                    <p>{consultation.name} · {consultation.phone}</p>
+                    <small>
+                      {new Date(consultation.createdAt).toLocaleDateString("ru-RU")}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      </aside>
+
+      {authOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setAuthOpen(false)}>
+          <div
+            className="auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="icon-button modal-close"
+              aria-label="Закрыть окно входа"
+              onClick={() => setAuthOpen(false)}
+            >
+              <Icon name="close" />
+            </button>
+            <div className="auth-mark">
+              <Icon name="mail" size={27} strokeWidth={1.5} />
+            </div>
+            {authSent ? (
+              <>
+                <span className="section-kicker">Проверьте почту</span>
+                <h2 id="auth-title">Ссылка уже в пути</h2>
+                <p>
+                  Мы отправили ссылку для входа на <b>{authEmail}</b>. Перейдите
+                  по ней — пароль не нужен.
+                </p>
+                <button
+                  className="button button-ghost full-button"
+                  onClick={() => setAuthSent(false)}
+                >
+                  Указать другой email
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="section-kicker">Личный кабинет</span>
+                <h2 id="auth-title">Войти по email</h2>
+                <p>
+                  Корзина, заказы и заявки флористу будут привязаны к этой почте.
+                </p>
+                <form onSubmit={sendMagicLink}>
+                  <label>
+                    <span>Email</span>
+                    <input
+                      required
+                      autoFocus
+                      type="email"
+                      placeholder="name@example.ru"
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="button button-primary full-button"
+                    disabled={busy}
+                    type="submit"
+                  >
+                    {busy ? "Отправляем..." : "Получить ссылку для входа"}
+                  </button>
+                </form>
+                <small className="auth-legal">
+                  Продолжая, вы соглашаетесь на обработку email для работы
+                  личного кабинета.
+                </small>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className={toast ? "toast show" : "toast"} aria-live="polite">
         <span>✓</span>
