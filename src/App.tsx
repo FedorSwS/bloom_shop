@@ -464,15 +464,28 @@ function App() {
       <header className="header">
         <div className="container header-inner">
           <a className="logo" href="#top" aria-label="Bloom shop — на главную">
-            <span className="logo-mark">
-              <span />
-              <span />
-              <span />
-              <span />
-            </span>
-            <span>
-              BLOOM <b>SHOP</b>
-            </span>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 350 90" 
+              style={{ height: '50px', width: 'auto' }}
+            >
+              <g transform="translate(0, 0)">
+                {/* Графическая часть (бутон) */}
+                <path d="M 40 80 C 10 50, 10 10, 40 10 C 60 30, 70 60, 40 80 Z" fill="#FFB6C1" opacity="0.9"/>
+                <path d="M 40 80 C 70 50, 70 10, 40 10 C 20 30, 10 60, 40 80 Z" fill="#FF69B4" opacity="0.8"/>
+                <path d="M 40 85 C 15 50, 25 0, 40 0 C 55 0, 65 50, 40 85 Z" fill="#E83E8C"/>
+                
+                {/* Текстовая часть */}
+                <text x="90" y="50" fontSize="38" fontWeight="900" fill="#2C3E50" letterSpacing="1" fontFamily="system-ui, sans-serif">
+                  BLOOM SHOP
+                </text>
+                
+                {/* Дескриптор */}
+                <text x="94" y="75" fontSize="13" fontWeight="600" fill="#6C757D" letterSpacing="3" textTransform="uppercase" fontFamily="system-ui, sans-serif">
+                  Авторская флористика
+                </text>
+              </g>
+            </svg>
           </a>
           <nav className={menuOpen ? "nav nav-open" : "nav"}>
             <a href="#catalog" onClick={() => setMenuOpen(false)}>
