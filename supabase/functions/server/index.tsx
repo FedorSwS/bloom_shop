@@ -125,6 +125,8 @@ app.post(`${prefix}/orders`, async (c) => {
     return c.json({ error: "Некорректная сумма заказа" }, 400);
   }
 
+  const fulfillmentMethod = body.fulfillmentMethod === "pickup" ? "pickup" : "delivery";
+
   const order = {
     id: `BL-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
     createdAt: new Date().toISOString(),
@@ -132,11 +134,26 @@ app.post(`${prefix}/orders`, async (c) => {
     items: body.items.slice(0, 50),
     subtotal: Number(body.subtotal) || total,
     discount: Number(body.discount) || 0,
+    deliveryFee: Number(body.deliveryFee) || 0,
     total,
     promoCode: safe(body.promoCode),
+    fulfillmentMethod,
+    pickupPoint: safe(body.pickupPoint),
+    senderName: safe(body.senderName),
+    senderPhone: safe(body.senderPhone),
+    senderEmail: safe(body.senderEmail || user.email),
+    isAnonymous: Boolean(body.isAnonymous),
+    recipientName: safe(body.recipientName),
+    recipientPhone: safe(body.recipientPhone),
     address: safe(body.address),
+    apartment: safe(body.apartment),
+    entrance: safe(body.entrance),
+    floor: safe(body.floor),
+    intercom: safe(body.intercom),
     date: safe(body.date),
     interval: safe(body.interval),
+    cardNote: safe(body.cardNote),
+    courierComment: safe(body.courierComment),
   };
 
   const orders = (await kv.get(`orders:${user.id}`)) ?? [];
@@ -151,6 +168,12 @@ app.post(`${prefix}/orders`, async (c) => {
         `<li>${safe(item.name)} — ${Number(item.quantity) || 1} шт. × ${Number(item.price).toLocaleString("ru-RU")} ₽</li>`,
     )
     .join("");
+
+  const fulfillmentDetails =
+    fulfillmentMethod === "pickup"
+      ? `<p><strong>Самовывоз:</strong> ${safe(order.pickupPoint)}<br>Дата и время: ${safe(order.date)}, ${safe(order.interval)}<br>Забирает: ${safe(order.senderName)} (${safe(order.senderPhone)})</p>`
+      : `<p><strong>Доставка курьером:</strong> ${safe(order.address)}${order.apartment ? `, кв./офис ${safe(order.apartment)}` : ""}<br>Дата и интервал: ${safe(order.date)}, ${safe(order.interval)}<br>Отправитель: ${order.isAnonymous ? "Анонимно" : `${safe(order.senderName)} (${safe(order.senderPhone)})`}<br>Получатель: ${safe(order.recipientName)} (${safe(order.recipientPhone)})</p>`;
+
   const emailSent = await sendEmail(
     user.email,
     `Заказ ${order.id} принят`,
@@ -158,7 +181,7 @@ app.post(`${prefix}/orders`, async (c) => {
     `<p>Мы получили заказ <strong>${order.id}</strong> и уже передали его флористу.</p>
      <ul style="padding-left:20px;line-height:1.8">${itemRows}</ul>
      <p>Итого: <strong>${total.toLocaleString("ru-RU")} ₽</strong></p>
-     <p>Доставка: ${safe(order.date)}, ${safe(order.interval)}<br>${safe(order.address)}</p>`,
+     ${fulfillmentDetails}`,
   );
 
   return c.json({ order, emailSent });
@@ -178,6 +201,7 @@ app.post(`${prefix}/consultations`, async (c) => {
     status: "Новая заявка",
     name: safe(body.name),
     phone: safe(body.phone),
+    topic: safe(body.topic || "Консультация флориста"),
   };
   const consultations = (await kv.get(`consultations:${user.id}`)) ?? [];
   await kv.set(
