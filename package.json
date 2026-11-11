@@ -1,10 +1,11 @@
 {
-  "name": "figma-make-app",
+  "name": "bloom-shop",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "format": "oxfmt"
