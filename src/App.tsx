@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiRequest,
   AppNotification,
@@ -1251,11 +1251,7 @@ function App() {
   const [activeFaq, setActiveFaq] = useState(0);
   const [toast, setToast] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // Leaflet map refs
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<Record<string, any>>({});
-  const circleRef = useRef<any>(null);
+  const [showAllSalonsOnMap, setShowAllSalonsOnMap] = useState<boolean>(true);
 
   const setFulfillmentMethod = (mode: "delivery" | "pickup") => {
     setFulfillmentMethodState(mode);
@@ -1297,140 +1293,13 @@ function App() {
     [deliveryZone],
   );
 
-  // Initialize Interactive Leaflet Map of Tula with Esri ArcGIS tiles (100% React 19 StrictMode safe)
-  useEffect(() => {
-    const container = document.getElementById("tula-map") as any;
-    if (!container) return;
-    const L = (window as any).L;
-    if (!L || typeof L.map !== "function" || !L.Circle || !L.Marker) return;
-    if (mapInstanceRef.current) {
-      try {
-        mapInstanceRef.current.remove();
-      } catch {
-        // ignore
-      }
-      mapInstanceRef.current = null;
-      circleRef.current = null;
-      markersRef.current = {};
+  const yandexMapWidgetUrl = useMemo(() => {
+    const pts = "37.598519,54.176573,pm2rdm1~37.6189,54.1918,pm2rdm2~37.638205,54.193415,pm2rdm3";
+    if (showAllSalonsOnMap) {
+      return `https://yandex.ru/map-widget/v1/?ll=${TULA_CENTER[1]}%2C${TULA_CENTER[0]}&z=12&pt=${pts}`;
     }
-    if (container._leaflet_id) {
-      try {
-        delete container._leaflet_id;
-      } catch {
-        container._leaflet_id = null;
-      }
-    }
-
-    try {
-      const map = L.map(container, {
-        center: TULA_CENTER,
-        zoom: 12,
-        scrollWheelZoom: false,
-      });
-
-      if (typeof L.tileLayer === "function") {
-        L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-          {
-            attribution: "Tiles &copy; Esri &mdash; г. Тула, салоны Bloom Shop",
-            maxZoom: 18,
-          },
-        ).addTo(map);
-      }
-
-      if (typeof L.circle === "function") {
-        const deliveryCircle = L.circle(TULA_CENTER, {
-          radius: 4800,
-          color: "#c96372",
-          weight: 2,
-          fillColor: "#c96372",
-          fillOpacity: 0.08,
-        }).addTo(map);
-        circleRef.current = deliveryCircle;
-      }
-
-      pickupPoints.forEach((pt) => {
-        if (typeof L.divIcon !== "function" || typeof L.marker !== "function") return;
-        const iconHtml = `<div style="width:32px;height:32px;border-radius:50%;background:#c96372;color:#fff;display:grid;place-items:center;font-size:15px;font-weight:700;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);">🌸</div>`;
-        const customIcon = L.divIcon({
-          html: iconHtml,
-          className: "bloom-map-pin",
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-          popupAnchor: [0, -16],
-        });
-
-        const marker = L.marker([pt.lat, pt.lng], { icon: customIcon }).addTo(map);
-        if (typeof marker.bindPopup === "function") {
-          marker.bindPopup(
-            `<div style="font-family:Manrope,sans-serif;font-size:12px;line-height:1.45;min-width:210px;">
-              <strong style="color:#a84453;font-size:13px;display:block;margin-bottom:3px;">${pt.shortName}</strong>
-              <div>${pt.name}</div>
-              <div style="color:#586952;font-weight:600;margin-top:4px;">${pt.hours} · ${pt.prepTime}</div>
-              <div style="color:#666;font-size:11px;margin-top:2px;">Тел.: ${pt.phone}</div>
-            </div>`,
-          );
-        }
-        if (typeof marker.on === "function") {
-          marker.on("click", () => {
-            setPickupPointId(pt.id);
-          });
-        }
-        markersRef.current[pt.id] = marker;
-      });
-
-      mapInstanceRef.current = map;
-      setTimeout(() => {
-        try {
-          if (map && typeof map.invalidateSize === "function") map.invalidateSize();
-        } catch {
-          // ignore
-        }
-      }, 250);
-
-      return () => {
-        try {
-          if (map && typeof map.remove === "function") map.remove();
-        } catch {
-          // ignore
-        }
-        mapInstanceRef.current = null;
-        circleRef.current = null;
-        markersRef.current = {};
-      };
-    } catch (err) {
-      console.warn("Map init fallback:", err);
-    }
-  }, []);
-
-  // Fly map to selected salon and update delivery zone radius safely
-  useEffect(() => {
-    try {
-      const map = mapInstanceRef.current;
-      if (!map) return;
-      if (circleRef.current && typeof circleRef.current.setRadius === "function") {
-        circleRef.current.setRadius(chosenZone.radiusMeters || 4800);
-      }
-      const marker = markersRef.current[chosenPickup.id];
-      if (marker && typeof map.flyTo === "function") {
-        map.flyTo([chosenPickup.lat, chosenPickup.lng], 14, { duration: 0.6 });
-        if (typeof marker.openPopup === "function") marker.openPopup();
-      }
-    } catch (err) {
-      console.warn("Map update fallback:", err);
-    }
-  }, [chosenPickup, chosenZone]);
-
-  const focusAllSalonsOnMap = () => {
-    try {
-      const map = mapInstanceRef.current;
-      if (map && typeof map.flyTo === "function") {
-        map.flyTo(TULA_CENTER, 12, { duration: 0.6 });
-      }
-    } catch {
-      // ignore
-    }
-  };
+    return `https://yandex.ru/map-widget/v1/?ll=${chosenPickup.lng}%2C${chosenPickup.lat}&z=15&pt=${pts}`;
+  }, [showAllSalonsOnMap, chosenPickup]);
 
   const selectedPackaging = useMemo(
     () =>
@@ -3259,23 +3128,24 @@ function App() {
               доставку курьером в аквабоксе с фотоотчётом перед выездом.
             </p>
 
-            {/* Interactive Leaflet + Esri ArcGIS Map */}
+            {/* Интерактивная Яндекс.Карта салонов Bloom Shop в г. Туле */}
             <div className="map-card">
               <div className="map-toolbar">
                 <button
                   type="button"
-                  className="chip-btn"
-                  onClick={focusAllSalonsOnMap}
+                  className={showAllSalonsOnMap ? "chip-btn active" : "chip-btn"}
+                  onClick={() => setShowAllSalonsOnMap(true)}
                 >
-                  🗺️ Показать все 3 салона в Туле
+                  🗺️ Все 3 салона на Яндекс.Карте
                 </button>
                 {pickupPoints.map((pt) => (
                   <button
                     key={pt.id}
                     type="button"
-                    className={pickupPointId === pt.id ? "chip-btn active" : "chip-btn"}
+                    className={!showAllSalonsOnMap && pickupPointId === pt.id ? "chip-btn active" : "chip-btn"}
                     onClick={() => {
                       setPickupPointId(pt.id);
+                      setShowAllSalonsOnMap(false);
                       setFulfillmentMethod("pickup");
                     }}
                   >
@@ -3286,43 +3156,21 @@ function App() {
               <div
                 id="tula-map"
                 className="tula-map-container"
-                style={{ height: "360px", width: "100%", position: "relative", overflow: "hidden" }}
+                style={{ height: "360px", width: "100%", position: "relative", borderRadius: "14px", overflow: "hidden", border: "1px solid var(--line)" }}
               >
-                <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#e7f0e9 0%,#dde8ef 50%,#efe8df 100%)", position: "relative" }}>
-                  <svg width="100%" height="100%" viewBox="0 0 700 360" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-                    <rect width="700" height="360" fill="#e9f0e6" />
-                    <path d="M0 100 Q 220 125 350 185 T 700 260" stroke="#a6cde2" strokeWidth="26" fill="none" />
-                    <path d="M120 0 L 290 360 M 440 0 L 380 360 M 0 210 L 700 165 M 0 80 L 700 280" stroke="#ffffff" strokeWidth="9" fill="none" />
-                    <path d="M190 0 L 250 360 M 520 0 L 490 360 M 0 290 L 700 95" stroke="#f5dc8c" strokeWidth="5" fill="none" />
-                    <circle cx="350" cy="180" r="130" fill="rgba(201,99,114,0.10)" stroke="#c96372" strokeWidth="2" strokeDasharray="6 4" />
-                    <text x="18" y="28" fill="#374151" fontSize="13" fontWeight="700">Карта доставки и 3 салонов самовывоза — г. Тула</text>
-                  </svg>
-                  <button
-                    type="button"
-                    onClick={() => { setPickupPointId("tula-lenina-74"); setFulfillmentMethod("pickup"); }}
-                    style={{ position: "absolute", left: "30%", top: "64%", transform: "translate(-50%,-50%)", background: pickupPointId === "tula-lenina-74" ? "#c96372" : "#fff", color: pickupPointId === "tula-lenina-74" ? "#fff" : "#1f2937", border: "2px solid #c96372", borderRadius: "12px", padding: "6px 10px", boxShadow: "0 6px 16px rgba(0,0,0,0.14)", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    📍 Пр-т Ленина, 74 (Флагманский)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setPickupPointId("tula-sovetskaya-47"); setFulfillmentMethod("pickup"); }}
-                    style={{ position: "absolute", left: "50%", top: "45%", transform: "translate(-50%,-50%)", background: pickupPointId === "tula-sovetskaya-47" ? "#c96372" : "#fff", color: pickupPointId === "tula-sovetskaya-47" ? "#fff" : "#1f2937", border: "2px solid #c96372", borderRadius: "12px", padding: "6px 10px", boxShadow: "0 6px 16px rgba(0,0,0,0.14)", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    📍 Ул. Советская, 47 (Центр)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setPickupPointId("tula-proletarskaya-2"); setFulfillmentMethod("pickup"); }}
-                    style={{ position: "absolute", left: "73%", top: "34%", transform: "translate(-50%,-50%)", background: pickupPointId === "tula-proletarskaya-2" ? "#c96372" : "#fff", color: pickupPointId === "tula-proletarskaya-2" ? "#fff" : "#1f2937", border: "2px solid #c96372", borderRadius: "12px", padding: "6px 10px", boxShadow: "0 6px 16px rgba(0,0,0,0.14)", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    📍 Ул. Пролетарская, 2 (ТРЦ Макси)
-                  </button>
-                </div>
+                <iframe
+                  title="Салоны Bloom Shop на Яндекс.Карте г. Тулы"
+                  src={yandexMapWidgetUrl}
+                  width="100%"
+                  height="360"
+                  style={{ border: 0, display: "block" }}
+                  allowFullScreen
+                  loading="lazy"
+                />
               </div>
               <div className="map-caption">
-                <span>🌸 Маркеры — салоны самовывоза Bloom Shop</span>
-                <span>⭕ Розовый контур — зона быстрой доставки от 30 мин</span>
+                <span>📍 Яндекс.Карты: ① пр-т Ленина, 74 · ② ул. Советская, 47 · ③ ул. Пролетарская, 2</span>
+                <span>🚚 Бесплатная доставка от 5 000 ₽ · Самовывоз — 0 ₽</span>
               </div>
             </div>
 
@@ -3338,6 +3186,7 @@ function App() {
                   }
                   onClick={() => {
                     setPickupPointId(pt.id);
+                    setShowAllSalonsOnMap(false);
                     setFulfillmentMethod("pickup");
                   }}
                   style={{ cursor: "pointer" }}
