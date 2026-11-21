@@ -1122,6 +1122,89 @@ function Icon({
 }
 
 
+
+function BrandLogo({ inverted = false }: { inverted?: boolean }) {
+  const titleColor = inverted ? "#ffffff" : "var(--logo-primary)";
+  const subColor = inverted ? "rgba(255,255,255,0.72)" : "var(--logo-sub)";
+  const gradId = inverted ? "tulipGradInv" : "tulipGrad";
+  const gradId2 = inverted ? "tulipGrad2Inv" : "tulipGrad2";
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 360 92"
+      style={{ height: "46px", width: "auto", display: "block" }}
+      role="img"
+      aria-label="Bloom Shop — Букет как зеркало души"
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FF9EB5" />
+          <stop offset="100%" stopColor="#E65C7E" />
+        </linearGradient>
+        <linearGradient id={gradId2} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F47294" />
+          <stop offset="100%" stopColor="#D6486B" />
+        </linearGradient>
+      </defs>
+      {/* Минималистичный тюльпан: 3 плавных лепестка с негативным пространством + стебель и 2 листа */}
+      <g transform="translate(8, 2)">
+        {/* Задний верхний лепесток */}
+        <path
+          d="M 33 10 C 39 5, 46 8, 48 16 C 43 20, 38 24, 35 28 C 35 21, 34 15, 33 10 Z"
+          fill={`url(#${gradId2})`}
+        />
+        {/* Левый основной лепесток */}
+        <path
+          d="M 28 7 C 18 19, 14 34, 29 44 C 31 35, 39 27, 36 16 C 34 11, 31 9, 28 7 Z"
+          fill={`url(#${gradId})`}
+        />
+        {/* Правый основной лепесток */}
+        <path
+          d="M 52 14 C 41 21, 35 33, 31 45 C 47 43, 56 31, 52 14 Z"
+          fill={`url(#${gradId2})`}
+        />
+        {/* Изящный изогнутый стебель */}
+        <path
+          d="M 33 46 C 30 56, 32 68, 36 78 C 35 83, 32 86, 28 89 C 35 86, 39 81, 39 74 C 38 65, 34 55, 36 46 Z"
+          fill="#6B8151"
+        />
+        {/* Левый лист с прожилкой негативного пространства */}
+        <path
+          d="M 34 75 C 27 65, 16 63, 14 48 C 12 43, 10 40, 7 38 C 18 41, 28 50, 33 65 C 29 56, 23 50, 17 45 C 22 52, 27 59, 32 69 C 33 71, 34 73, 34 75 Z"
+          fill="#768D5B"
+        />
+        {/* Правый лист */}
+        <path
+          d="M 38 77 C 46 69, 53 60, 58 51 C 47 54, 41 61, 38 71 C 43 63, 47 59, 52 55 C 47 61, 42 68, 38 77 Z"
+          fill="#6B8151"
+        />
+      </g>
+      <text
+        x="82"
+        y="48"
+        fontSize="31"
+        fontWeight="800"
+        fill={titleColor}
+        letterSpacing="1.2"
+        fontFamily="Manrope, system-ui, -apple-system, sans-serif"
+      >
+        BLOOM SHOP
+      </text>
+      <text
+        x="84"
+        y="71"
+        fontSize="12.5"
+        fontWeight="600"
+        fill={subColor}
+        letterSpacing="2.4"
+        fontFamily="Manrope, system-ui, -apple-system, sans-serif"
+      >
+        Букет как зеркало души
+      </text>
+    </svg>
+  );
+}
+
 function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
@@ -2025,51 +2108,8 @@ function App() {
 
       <header className="header">
         <div className="container header-inner">
-          <a className="logo" href="#top" aria-label="Bloom shop — на главную">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 450 90"
-              style={{ height: "44px", width: "auto" }}
-            >
-              <g transform="translate(0, 0)">
-                <path
-                  d="M 40 80 C 10 50, 10 10, 40 10 C 60 30, 70 60, 40 80 Z"
-                  fill="#FFB6C1"
-                  opacity="0.9"
-                />
-                <path
-                  d="M 40 80 C 70 50, 70 10, 40 10 C 20 30, 10 60, 40 80 Z"
-                  fill="#FF69B4"
-                  opacity="0.8"
-                />
-                <path
-                  d="M 40 85 C 15 50, 25 0, 40 0 C 55 0, 65 50, 40 85 Z"
-                  fill="#E83E8C"
-                />
-                <text
-                  x="90"
-                  y="50"
-                  fontSize="38"
-                  fontWeight="900"
-                  fill="var(--logo-primary)"
-                  letterSpacing="1"
-                  fontFamily="system-ui, sans-serif"
-                >
-                  BLOOM SHOP
-                </text>
-                <text
-                  x="94"
-                  y="75"
-                  fontSize="13"
-                  fontWeight="600"
-                  fill="var(--logo-sub)"
-                  letterSpacing="3"
-                  fontFamily="system-ui, sans-serif"
-                >
-                  Букет как зеркало души
-                </text>
-              </g>
-            </svg>
+          <a className="logo" href="#top" aria-label="Bloom Shop — на главную" title="На главную страницу">
+            <BrandLogo />
           </a>
           <nav className={menuOpen ? "nav nav-open" : "nav"}>
             <a href="#catalog" onClick={() => setMenuOpen(false)}>
@@ -3754,16 +3794,8 @@ function App() {
 
       <footer className="footer">
         <div className="container footer-top">
-          <a className="logo footer-logo" href="#top">
-            <span className="logo-mark">
-              <span />
-              <span />
-              <span />
-              <span />
-            </span>
-            <span>
-              BLOOM <b>SHOP</b>
-            </span>
+          <a className="logo footer-logo" href="#top" aria-label="Bloom Shop — на главную" title="На главную страницу">
+            <BrandLogo inverted />
           </a>
           <p>
             Свежие цветы, свадебная флористика и подарки с доставкой по Туле от
