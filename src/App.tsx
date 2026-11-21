@@ -921,6 +921,7 @@ const greeneryOptions = [
 ];
 
 const packagingOptions = [
+  { id: "none", name: "Без упаковки", sub: "Только цветы, без доплаты за оформление", price: 0 },
   { id: "ribbon", name: "Атласная лента", sub: "Эко-минимализм в тон букета", price: 100 },
   { id: "craft", name: "Крафтовая бумага", sub: "Дизайнерский крафт с тишью", price: 200 },
   { id: "korean_film", name: "Матовая корейская плёнка", sub: "Нежная пудра / слоновая кость", price: 350 },
@@ -1161,7 +1162,7 @@ function App() {
   const [constructorGroup, setConstructorGroup] = useState<"all" | "roses" | "spring" | "classic" | "exotic">("all");
   const [showAllConstructorFlowers, setShowAllConstructorFlowers] = useState<boolean>(true);
   const [selectedBouquetModal, setSelectedBouquetModal] = useState<Bouquet | null>(null);
-  const [modalPackagingId, setModalPackagingId] = useState<string>("craft");
+  const [modalPackagingId, setModalPackagingId] = useState<string>("none");
 
   const [quantities, setQuantities] = useState<Record<FlowerId, number>>({
     rose: 9,
@@ -1304,7 +1305,7 @@ function App() {
   const selectedPackaging = useMemo(
     () =>
       packagingOptions.find((p) => p.id === selectedPackagingId) ||
-      packagingOptions[1],
+      packagingOptions[0],
     [selectedPackagingId],
   );
 
@@ -2626,7 +2627,7 @@ function App() {
                       className="product-image"
                       onClick={() => {
                         setSelectedBouquetModal(bouquet);
-                        setModalPackagingId(selectedPackagingId);
+                        setModalPackagingId("none");
                       }}
                       style={{ cursor: "pointer" }}
                     >
@@ -2687,7 +2688,7 @@ function App() {
                             className="btn-detail"
                             onClick={() => {
                               setSelectedBouquetModal(bouquet);
-                              setModalPackagingId(selectedPackagingId);
+                              setModalPackagingId("none");
                             }}
                           >
                             Упаковка / Состав
@@ -2898,7 +2899,7 @@ function App() {
                     )}
                     <li>
                       <span>Упаковка: {selectedPackaging.name}</span>
-                      <b>+{selectedPackaging.price} ₽</b>
+                      <b>{selectedPackaging.price > 0 ? `+${selectedPackaging.price} ₽` : "0 ₽"}</b>
                     </li>
                   </ul>
                 </div>
@@ -2952,7 +2953,21 @@ function App() {
           </div>
           <div className="extras-grid">
             <div className="packaging-panel">
-              <h3>2. Выберите упаковку ({packagingOptions.length} вариантов)</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap", marginBottom: "12px" }}>
+                <h3 style={{ margin: 0 }}>2. Выберите упаковку ({packagingOptions.length} вариантов)</h3>
+                {selectedPackagingId !== "none" && (
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => {
+                      setSelectedPackagingId("none");
+                      notify("Упаковка отменена (0 ₽)");
+                    }}
+                  >
+                    ✕ Отменить упаковку (0 ₽)
+                  </button>
+                )}
+              </div>
               <div className="packaging-list">
                 {packagingOptions.map((pkg) => (
                   <label
@@ -2962,6 +2977,13 @@ function App() {
                         : "package-option"
                     }
                     key={pkg.id}
+                    onClick={(e) => {
+                      if (selectedPackagingId === pkg.id && pkg.id !== "none") {
+                        e.preventDefault();
+                        setSelectedPackagingId("none");
+                        notify("Упаковка отменена (0 ₽)");
+                      }
+                    }}
                   >
                     <input
                       checked={selectedPackagingId === pkg.id}
@@ -2974,7 +2996,9 @@ function App() {
                       <b>{pkg.name}</b>
                       <small>{pkg.sub}</small>
                     </div>
-                    <span className="package-price">+{pkg.price} ₽</span>
+                    <span className="package-price">
+                      {pkg.price > 0 ? `+${pkg.price} ₽` : "0 ₽"}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -4623,7 +4647,7 @@ function App() {
                   >
                     {packagingOptions.map((pkg) => (
                       <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} (+{pkg.price} ₽)
+                        {pkg.name} ({pkg.price > 0 ? `+${pkg.price} ₽` : "0 ₽"})
                       </option>
                     ))}
                   </select>
@@ -4638,7 +4662,7 @@ function App() {
                     addToCart(
                       {
                         id: `bouquet-${selectedBouquetModal.id}-${pkg.id}`,
-                        name: `${selectedBouquetModal.name} (${pkg.name})`,
+                        name: pkg.id === "none" ? selectedBouquetModal.name : `${selectedBouquetModal.name} (${pkg.name})`,
                         price: selectedBouquetModal.price + pkg.price,
                         image: selectedBouquetModal.image,
                         details: `${selectedBouquetModal.composition} · Упаковка: ${pkg.name}`,

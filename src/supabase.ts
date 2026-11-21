@@ -355,27 +355,29 @@ export async function apiRequest<T>(
     throw new Error("Необходима авторизация");
   }
 
-  // Try local Node.js backend (/api) first if running in dev/production server
-  try {
-    const localApiRes = await fetch(`/api${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Id": activeId,
-        "X-User-Email": activeEmail,
-        ...options.headers,
-      },
-    });
-    if (localApiRes.ok) {
-      const contentType = localApiRes.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const data = await localApiRes.json();
-        handleLocalApi(activeId, activeEmail, path, options);
-        return data as T;
+  // Try local Node.js backend (/api or http://localhost:3001/api) first
+  for (const baseUrl of ["/api", "http://localhost:3001/api"]) {
+    try {
+      const localApiRes = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": activeId,
+          "X-User-Email": activeEmail,
+          ...options.headers,
+        },
+      });
+      if (localApiRes.ok) {
+        const contentType = localApiRes.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await localApiRes.json();
+          handleLocalApi(activeId, activeEmail, path, options);
+          return data as T;
+        }
       }
+    } catch {
+      // Try next endpoint or fallback
     }
-  } catch {
-    // Fallback to Supabase Edge Function or browser storage
   }
 
   if (session?.access_token && session.user) {
